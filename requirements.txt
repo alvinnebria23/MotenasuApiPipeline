@@ -2,3 +2,6 @@ aws-cdk-lib==2.151.0
 constructs>=10.0.0,<11.0.0
 python-dotenv==1.0.1
 dataclasses-json==0.6.4
+pymysql==1.1.1
+DBUtils==3.0.3
+mysql-connector-python==8.3.0

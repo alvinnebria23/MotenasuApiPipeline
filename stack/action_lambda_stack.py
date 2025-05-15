@@ -102,4 +102,19 @@ class ActionLambdaStack(Stack):
             )
         )
 
+        # Add S3 permissions
+        lambda_function.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:ListBucket"
+                ],
+                resources=[
+                    "arn:aws:s3:::motenasu-api-pipeline",
+                    "arn:aws:s3:::motenasu-api-pipeline/*"
+                ]
+            )
+        )
+
         return lambda_function
