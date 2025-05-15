@@ -10,6 +10,7 @@ from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 from aws_cdk import aws_ec2 as ec2
+from action_lambda.constant.action_lambda_constant import LambdaConstant
 
 class ActionLambdaStack(Stack):
     """AWS CDK Stack for Lambda function that deploys and deletes other stacks."""
@@ -167,6 +168,36 @@ class ActionLambdaStack(Stack):
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaVPCAccessExecutionRole"),
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
             ],
+        )
+
+        # Add S3 permissions
+        lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:HeadObject",
+                    "s3:ListBucket"
+                ],
+                resources=[
+                    f"arn:aws:s3:::{LambdaConstant.MOTENASU_SERVERLESS_SHARED_BUCKET}",
+                    f"arn:aws:s3:::{LambdaConstant.MOTENASU_SERVERLESS_SHARED_BUCKET}/*"
+                ]
+            )
+        )
+
+        # Add CodePipeline permissions
+        lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "codepipeline:StartPipelineExecution",
+                    "codepipeline:GetPipelineExecution",
+                    "codepipeline:ListPipelineExecutions"
+                ],
+                resources=[
+                    f"arn:aws:codepipeline:*:*:MotenasuApiPipeline"
+                ]
+            )
         )
 
         return lambda_role
