@@ -58,6 +58,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 def deploy_stacks(event: Dict[str, Any], site_master_id: str) -> Dict[str, Any]:
     """Deploy CloudFormation stacks and upload .env file to S3."""
+    # Initialize AWS clients first
+    s3_client = boto3.client('s3')
+
     try:
         site_master_id = event.get(SiteMasterConstant.SITE_MASTER_ID)
         jwt_expiry_minutes = event.get(LambdaConstant.JWT_TOKEN_EXPIRY_IN_MINUTES)
@@ -71,8 +74,7 @@ def deploy_stacks(event: Dict[str, Any], site_master_id: str) -> Dict[str, Any]:
         
         logger.info(f"Attempting to deploy stack: {site_master_id}")
         
-        # Initialize AWS clients first
-        s3_client = boto3.client('s3')
+        
 
         # Check S3 bucket first
         env_file_key = f'motenasu-api/config/client_env/{site_master_id}.env'
@@ -81,20 +83,20 @@ def deploy_stacks(event: Dict[str, Any], site_master_id: str) -> Dict[str, Any]:
                 Bucket=LambdaConstant.MOTENASU_SERVERLESS_SHARED_BUCKET,
                 Key=env_file_key
             )
-            logger.info(f".env file exists in S3 for site master id {site_master_id}")
+            logger.info(f".env file already exists in S3 for site master id {site_master_id}")
             
             return {    
                 'statusCode': StatusCodeConstant.SUCCESS,
                 'body': json.dumps({
-                    'message': f'env file exists in S3 for site master id {site_master_id}',
+                    'message': f'env file already exists in S3 for site master id {site_master_id}',
                 })
             }
         except s3_client.exceptions.ClientError as e:
+            # If the .env file does not exist in S3, call the pipeline and save .env file to S3
             if e.response['Error']['Code'] == '404':
                 logger.info(f"Calling pipeline for site master id {site_master_id}")
-                # Call MotenasuApiPipeline
+
                 try:
-                    # Now that we know the file exists, proceed with database check
                     site_master_data = SiteMasterRepository().get_site_master_by_id(site_master_id)
                     manager_domain = site_master_data.get(SiteMasterConstant.MANAGER_DOMAIN) if site_master_data else None
                     db_host = site_master_data.get(SiteMasterConstant.DB_HOST) if site_master_data else None
@@ -112,8 +114,6 @@ def deploy_stacks(event: Dict[str, Any], site_master_id: str) -> Dict[str, Any]:
                         }
                     
                     stack_name = manager_domain.replace(".", "-")
-
-                    logger.info(f"Starting MotenasuApiPipeline for site_master_id: {site_master_id}")
                     codepipeline_client = boto3.client('codepipeline')
                     response = codepipeline_client.start_pipeline_execution(
                         name='MotenasuApiPipeline',
@@ -211,14 +211,44 @@ def destroy_stacks(site_master_id: str) -> Dict[str, Any]:
             import boto3
             cloudformation_client = boto3.client('cloudformation')
             
-            # Check if stack exists
-            cloudformation_client.describe_stacks(StackName=stack_name)
-            logger.info(f"Stack {stack_name} exists, proceeding with deletion")
+            try:
+                cloudformation_client.describe_stacks(StackName=stack_name)
+                logger.info(f"Stack {stack_name} exists, proceeding with deletion")
+            except cloudformation_client.exceptions.ClientError as e:
+                if 'does not exist' in str(e):
+                    logger.info(f"Stack {stack_name} does not exist")
+                    return {
+                        'statusCode': StatusCodeConstant.NOT_FOUND,
+                        'body': json.dumps({
+                            'message': f'Stack {stack_name} does not exist',
+                            'stack_name': stack_name
+                        })
+                    }
+                else:
+                    # Some other CloudFormation error occurred
+                    logger.error(f"Error checking stack: {str(e)}")
+                    raise e
             
             # Delete the stack
-            cloudformation_client.delete_stack(StackName=stack_name)
-            logger.info(f"Stack {stack_name} deletion initiated")
+            # cloudformation_client.delete_stack(StackName=stack_name)
+            # logger.info(f"Stack {stack_name} deletion initiated")
             
+            env_file_key = f'motenasu-api/config/client_env/{site_master_id}.env'
+            s3_client.delete_object(
+                Bucket=LambdaConstant.MOTENASU_SERVERLESS_SHARED_BUCKET,
+                Key=env_file_key
+            )
+            logger.info(f"Successfully deleted .env file from S3 for site master id {site_master_id}")
+        except Exception as e:
+            logger.error(f"Failed to delete .env file from S3: {str(e)}")
+            return {
+                'statusCode': StatusCodeConstant.INTERNAL_SERVER_ERROR,
+                'body': json.dumps({
+                    'message': 'Stack deleted but failed to delete .env file from S3',
+                    'error': str(e)
+                })
+            }
+
             return {
                 'statusCode': StatusCodeConstant.SUCCESS,
                 'body': json.dumps({
@@ -229,11 +259,11 @@ def destroy_stacks(site_master_id: str) -> Dict[str, Any]:
             }
             
         except Exception as e:
-            logger.error(f"Error getting stack name from database: {str(e)}")
+            logger.error(f"Error occurred while deleting stack: {str(e)}")
             return {
                 'statusCode': StatusCodeConstant.INTERNAL_SERVER_ERROR,
                 'body': json.dumps({
-                    'message': 'Error getting stack name from database',
+                    'message': 'Error occurred while deleting stack',
                     'error': str(e)
                 })
             }
