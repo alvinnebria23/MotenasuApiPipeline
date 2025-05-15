@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import boto3
 from typing import Dict, Any
 from constant.action_lambda_constant import ActionConstant, LambdaConstant, SiteMasterConstant, StatusCodeConstant
 from repository.site_master_repository import SiteMasterRepository
@@ -71,7 +72,6 @@ def deploy_stacks(event: Dict[str, Any], site_master_id: str) -> Dict[str, Any]:
         logger.info(f"Attempting to deploy stack: {site_master_id}")
         
         # Initialize AWS clients first
-        import boto3
         s3_client = boto3.client('s3')
 
         # Check S3 bucket first

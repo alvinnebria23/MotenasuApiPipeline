@@ -32,9 +32,9 @@ xcopy /E /I /Y ..\action_lambda ..\lambda_layer\action_lambda\lib\python\action_
 
 :: Verify the installation
 echo Verifying package installation...
-dir ..\lambda_layer\action_lambda\lib\python\pymysql
-dir ..\lambda_layer\action_lambda\lib\python\DBUtils
-dir ..\lambda_layer\action_lambda\lib\python\mysql
+dir lambda_layer\action_lambda\lib\python\pymysql
+dir lambda_layer\action_lambda\lib\python\DBUtils
+dir lambda_layer\action_lambda\lib\python\mysql
 
 echo.
 echo All tasks completed successfully!
