@@ -16,18 +16,18 @@ class SiteMasterRepository:
         Returns:
             Optional[Dict[str, Any]]: Site master details if found, None otherwise
         """
+        
         try:
             with DatabaseUtil.connection() as connection:
                 with connection.cursor() as cursor:
                     query = """
                         SELECT *
-                        FROM SITE_MASTER 
-                        WHERE SITE_MASTER_ID = %s;
+                        FROM site_master 
+                        WHERE site_master_id = %s;
                     """
-                    
                     DatabaseUtil.execute(cursor, query, (site_master_id,))
                     result = cursor.fetchone()
-                    
+
                     if result:
                         logger.info(f"Found site master with ID: {site_master_id}")
                         return result
@@ -35,6 +35,9 @@ class SiteMasterRepository:
                         logger.info(f"No site master found with ID: {site_master_id}")
                         return None
                     
+        except ValueError as e:
+            logger.error(f"Invalid site_master_id format: {e}")
+            return None
         except Exception as e:
             logger.error(f"Error fetching site master: {e}")
             raise

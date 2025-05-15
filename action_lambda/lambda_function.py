@@ -4,10 +4,13 @@ import os
 from typing import Dict, Any
 from constant.action_lambda_constant import ActionConstant, LambdaConstant, SiteMasterConstant, StatusCodeConstant
 from repository.site_master_repository import SiteMasterRepository
+from util.database_util import DatabaseUtil
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+#Initialize database connection
+DatabaseUtil.initialize()
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -17,7 +20,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         action = event.get(ActionConstant.ACTION)
         site_master_id = event.get(SiteMasterConstant.SITE_MASTER_ID)
 
-        logger.info(f"Action: {action}, Site Master ID: {site_master_id}")
+        logger.info(f"Action: {action}, SITE_MASTER_ID: {site_master_id}")
+        
         
         if action == ActionConstant.DEPLOY:
             return deploy_stacks(event, site_master_id)
@@ -49,6 +53,20 @@ def deploy_stacks(event: Dict[str, Any], site_master_id: str) -> Dict[str, Any]:
     try:
         logger.info(f"Attempting to deploy stack: {site_master_id}")
         
+        stack_name = None
+        site_master_data = SiteMasterRepository().get_site_master_by_id(site_master_id)
+        manager_domain = site_master_data.get(SiteMasterConstant.MANAGER_DOMAIN) if site_master_data else None
+
+        if manager_domain:
+            stack_name = manager_domain.replace(".", "-")
+        else:
+            return {
+                'statusCode': StatusCodeConstant.NOT_FOUND,
+                'body': json.dumps({
+                    'message': f'No manager domain found for site master ID {site_master_id}'
+                })
+            }
+
         if not site_master_id:
             return {
                 'statusCode': StatusCodeConstant.BAD_REQUEST,
@@ -154,10 +172,9 @@ def destroy_stacks(site_master_id: str) -> Dict[str, Any]:
         # Get stack name from database
         try:
             stack_name = None
-            repository = SiteMasterRepository()
-            site_master_data = repository.get_site_master_by_id(site_master_id)
-            manager_domain = site_master_data.get(SiteMasterConstant.MANAGER_DOMAIN)
-            
+            site_master_data = SiteMasterRepository().get_site_master_by_id(site_master_id)
+            manager_domain = site_master_data.get(SiteMasterConstant.MANAGER_DOMAIN) if site_master_data else None
+             
             if manager_domain:
                 stack_name = manager_domain.replace(".", "-")
             else:
