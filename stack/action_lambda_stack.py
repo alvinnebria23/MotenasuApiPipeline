@@ -177,7 +177,8 @@ class ActionLambdaStack(Stack):
                     "s3:GetObject",
                     "s3:PutObject",
                     "s3:HeadObject",
-                    "s3:ListBucket"
+                    "s3:ListBucket",
+                    "s3:DeleteObject"
                 ],
                 resources=[
                     f"arn:aws:s3:::{LambdaConstant.MOTENASU_SERVERLESS_SHARED_BUCKET}",

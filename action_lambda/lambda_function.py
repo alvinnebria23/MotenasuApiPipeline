@@ -206,9 +206,6 @@ def destroy_stacks(site_master_id: str) -> Dict[str, Any]:
                 }
 
             logger.info(f"Found stack name {stack_name} for site_master_id {site_master_id}")
-            
-            # Initialize CloudFormation client
-            import boto3
             cloudformation_client = boto3.client('cloudformation')
             
             try:
@@ -230,10 +227,11 @@ def destroy_stacks(site_master_id: str) -> Dict[str, Any]:
                     raise e
             
             # Delete the stack
-            # cloudformation_client.delete_stack(StackName=stack_name)
-            # logger.info(f"Stack {stack_name} deletion initiated")
+            cloudformation_client.delete_stack(StackName=stack_name)
+            logger.info(f"Stack {stack_name} deletion initiated")
             
             env_file_key = f'motenasu-api/config/client_env/{site_master_id}.env'
+            s3_client = boto3.client('s3')
             s3_client.delete_object(
                 Bucket=LambdaConstant.MOTENASU_SERVERLESS_SHARED_BUCKET,
                 Key=env_file_key
@@ -245,25 +243,6 @@ def destroy_stacks(site_master_id: str) -> Dict[str, Any]:
                 'statusCode': StatusCodeConstant.INTERNAL_SERVER_ERROR,
                 'body': json.dumps({
                     'message': 'Stack deleted but failed to delete .env file from S3',
-                    'error': str(e)
-                })
-            }
-
-            return {
-                'statusCode': StatusCodeConstant.SUCCESS,
-                'body': json.dumps({
-                    'message': f'Stack {stack_name} deletion initiated successfully',
-                    'stack_name': stack_name,
-                    'site_master_id': site_master_id
-                })
-            }
-            
-        except Exception as e:
-            logger.error(f"Error occurred while deleting stack: {str(e)}")
-            return {
-                'statusCode': StatusCodeConstant.INTERNAL_SERVER_ERROR,
-                'body': json.dumps({
-                    'message': 'Error occurred while deleting stack',
                     'error': str(e)
                 })
             }
